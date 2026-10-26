@@ -31,6 +31,7 @@ test("private photo upload round-trips to an offline-complete journal and reuses
         time: "08:00",
         text: "早餐",
         photo: "data:image/jpeg;base64,YWJj",
+        nutrition: { source: "home", items: [{ foodId: "rice", quantity: .5 }], consumed: .75, oil: "unknown", complete: false },
       },
       {
         id: "meal-2",
@@ -41,6 +42,7 @@ test("private photo upload round-trips to an offline-complete journal and reuses
       },
     ],
   };
+  journal.settings.nutritionTargets = { protein: 120, kcal: 2100 };
   const payload = await transport.upload(user, journal);
   expect(uploads).toBe(1);
   expect(payload.cloudPhotos?.["meal-1"]).toMatch(/^alice\/[0-9a-f]{64}\.jpg$/);

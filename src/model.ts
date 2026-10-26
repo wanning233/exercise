@@ -1,3 +1,5 @@
+import { validNutrition, validTargets } from "./nutrition";
+import type { MealNutrition, NutritionTargets } from "./nutrition";
 export type MealType = "breakfast" | "lunch" | "dinner" | "snack";
 export type Meal = {
   id: string;
@@ -5,6 +7,7 @@ export type Meal = {
   text: string;
   time: string;
   photo?: string;
+  nutrition?: MealNutrition;
 };
 export type Water = { id: string; amount: number; time: string };
 export type TrainingSet = {
@@ -42,7 +45,11 @@ export type Journal = {
   version: 1;
   days: Record<string, Day>;
   notes: Note[];
-  settings: { waterGoal: number; name: string };
+  settings: {
+    waterGoal: number;
+    name: string;
+    nutritionTargets?: NutritionTargets;
+  };
 };
 
 export const newJournal = (): Journal => ({
@@ -153,6 +160,11 @@ export function validateJournal(value: unknown): value is Journal {
     return false;
   if (Object.keys(value.days).length > 40000 || value.notes.length > 50000)
     return false;
+  if (
+    value.settings.nutritionTargets !== undefined &&
+    !validTargets(value.settings.nutritionTargets)
+  )
+    return false;
   const ids = new Set<string>();
   const id = (v: unknown) => {
     if (!string(v, 100) || !v || ids.has(v)) return false;
@@ -187,6 +199,7 @@ export function validateJournal(value: unknown): value is Journal {
         !time(m.time)
       )
         return false;
+      if (m.nutrition !== undefined && !validNutrition(m.nutrition)) return false;
       if (
         m.photo !== undefined &&
         (!string(m.photo, 4000000) ||

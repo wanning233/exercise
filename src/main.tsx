@@ -73,6 +73,20 @@ import { useCloudSync } from "./useCloudSync";
 import { CloudPanel } from "./CloudPanel";
 import { syncLabels } from "./sync";
 import { cloudAvailable } from "./cloudConfig";
+import {
+  blankNutrition,
+  NutritionSummary,
+  NutritionTargetFields,
+  PortionEditor,
+} from "./NutritionPanel";
+import {
+  type MealNutrition,
+  type Macros,
+  type NutritionTargets,
+  macroKeys,
+  foods,
+  validNutrition,
+} from "./nutrition";
 
 type Tab = "today" | "history" | "library";
 type Dialog =
@@ -823,6 +837,11 @@ function App() {
                           <Edit3 size={14} />
                         </button>
                       ))}
+                    <NutritionSummary
+                      meals={day.meals}
+                      targets={current.settings.nutritionTargets}
+                      configure={() => setDialog({ kind: "settings" })}
+                    />
                   </section>
 
                   <section className="training-section">
@@ -2006,6 +2025,7 @@ function MealForm({
       return JSON.parse(sessionStorage.getItem(draftKey) || "null") as {
         text?: string;
         time?: string;
+        nutrition?: MealNutrition;
       } | null;
     } catch {
       return null;
@@ -2016,29 +2036,38 @@ function MealForm({
     () => meal?.time || readDraft()?.time || nowTime(),
   );
   const [photo, setPhoto] = useState(meal?.photo || "");
+  const [nutrition, setNutrition] = useState(() => {
+    const draft = readDraft()?.nutrition;
+    return meal?.nutrition || (validNutrition(draft) ? draft : blankNutrition(date));
+  });
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     try {
-      sessionStorage.setItem(draftKey, JSON.stringify({ text, time }));
+      sessionStorage.setItem(draftKey, JSON.stringify({ text, time, nutrition }));
     } catch {
       /* The saved journal remains in IndexedDB when draft storage is unavailable. */
     }
-  }, [text, time, draftKey]);
+  }, [text, time, nutrition, draftKey]);
   return (
     <form
       onSubmit={(event) => {
         event.preventDefault();
-        if (!text.trim() && !photo) {
+        if (!text.trim() && !photo && !nutrition.items.length) {
           notify("写下吃了什么，或添加一张照片");
           return;
         }
         save({
           id: meal?.id || uid(),
           type,
-          text: text.trim(),
+          text:
+            text.trim() ||
+            nutrition.items
+              .map((item) => foods.find((f) => f.id === item.foodId)!.name)
+              .join("、"),
           time,
           photo: photo || undefined,
+          nutrition: nutrition.items.length ? nutrition : undefined,
         });
         sessionStorage.removeItem(draftKey);
       }}
@@ -2119,6 +2148,7 @@ function MealForm({
           onChange={(e) => setTime(e.target.value)}
         />
       </label>
+      <PortionEditor value={nutrition} change={setNutrition} />
       <div className="form-actions">
         {meal && (
           <button
@@ -2479,12 +2509,25 @@ function SettingsForm({
 }) {
   const [name, setName] = useState(settings.name);
   const [goal, setGoal] = useState(String(settings.waterGoal));
+  const [targets, setTargets] = useState<Partial<Record<keyof Macros, string>>>(
+    () => Object.fromEntries(macroKeys.map((key) => [
+      key, settings.nutritionTargets?.[key]?.toString() || "",
+    ])),
+  );
   return (
     <>
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          save({ name: name.trim() || "我", waterGoal: Number(goal) });
+          const nutritionTargets: NutritionTargets = {};
+          for (const key of macroKeys)
+            if (targets[key]?.trim()) nutritionTargets[key] = Number(targets[key]);
+          save({
+            ...settings,
+            name: name.trim() || "我",
+            waterGoal: Number(goal),
+            nutritionTargets,
+          });
         }}
       >
         <label className="form-field">
@@ -2508,6 +2551,12 @@ function SettingsForm({
             onChange={(e) => setGoal(e.target.value)}
           />
         </label>
+        <NutritionTargetFields
+          value={targets}
+          change={(key, value) =>
+            setTargets((previous) => ({ ...previous, [key]: value }))
+          }
+        />
         <button type="submit" className="button primary full">
           <Check size={16} />
           保存设置
