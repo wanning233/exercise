@@ -1,10 +1,13 @@
-import { get, set } from "idb-keyval";
+import { get, getMany, set } from "idb-keyval";
 import { Journal, newJournal, validateJournal } from "./model";
+import type { SyncMeta } from "./sync";
 
 const KEY = "lianji-journal-v1";
 let queue = Promise.resolve();
+let sessionMeta: SyncMeta | undefined;
 export async function loadJournal(): Promise<Journal> {
-  const data: unknown = await get(KEY);
+  const [data, meta] = await getMany<unknown>([KEY, "lianji-sync-v1"]);
+  sessionMeta = meta as SyncMeta | undefined;
   if (data === undefined) return newJournal();
   if (!validateJournal(data))
     throw new Error("本机记录格式异常，请先导出原始备份。");
@@ -15,6 +18,22 @@ export function saveJournal(data: Journal) {
   const task = queue.catch(() => {}).then(() => set(KEY, data));
   queue = task;
   return task;
+}
+// Keep the baseline paired with this tab's initial journal, even if another tab syncs.
+export const loadSyncMeta = async () => sessionMeta;
+export async function saveSyncMeta(meta: SyncMeta) {
+  await set("lianji-sync-v1", meta);
+  sessionMeta = meta;
+}
+export type Recovery = { date: string; journal: Journal };
+export const loadRecoveries = async () =>
+  (await get<Recovery[]>("lianji-recovery-v1")) || [];
+export async function saveRecovery(journal: Journal) {
+  const previous = await loadRecoveries();
+  await set(
+    "lianji-recovery-v1",
+    [{ date: new Date().toISOString(), journal }, ...previous].slice(0, 5),
+  );
 }
 export function exportFile(data: unknown) {
   const url = URL.createObjectURL(

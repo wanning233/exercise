@@ -1,6 +1,36 @@
 import { test, expect } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 
+test("cloud login is available and fits a mobile dialog without uploading samples", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await page.getByRole("button", { name: "设置与备份" }).click();
+  await expect(
+    page.getByRole("heading", { name: "云端同步", exact: true }),
+  ).toBeVisible();
+  await page.getByLabel("邮箱", { exact: true }).fill("person@example.test");
+  await expect(
+    page.getByRole("button", { name: "获取验证码", exact: true }),
+  ).toBeEnabled();
+  await expect(page.getByRole("button", { name: "登录并同步" })).toBeDisabled();
+  await expect(page.locator(".cloud-error")).toHaveCount(0);
+  expect(
+    await page
+      .locator(".modal")
+      .evaluate((el) => el.scrollWidth <= el.clientWidth),
+  ).toBeTruthy();
+  await page.screenshot({ path: "test-results/cloud-login-mobile.png" });
+  await page.getByRole("button", { name: "关闭窗口" }).click();
+  await page.getByRole("button", { name: "查看示例" }).click();
+  await page.getByRole("button", { name: "设置与备份" }).click();
+  await expect(
+    page.getByText("示例记录不会上传。回到我的记录后可登录同步。"),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "登录并同步" })).toHaveCount(0);
+});
+
 test("records a full day, persists photos and training, and restores a complete backup", async ({
   page,
   browser,
@@ -71,7 +101,9 @@ test("records a full day, persists photos and training, and restores a complete 
   expect(day.exercises[0].sets).toHaveLength(2);
   expect(backup.notes[0].action).toBe("杠铃卧推");
 
-  const context = await browser.newContext({ baseURL: "http://localhost:4173" });
+  const context = await browser.newContext({
+    baseURL: "http://localhost:4173",
+  });
   const restored = await context.newPage();
   await restored.goto("/");
   await restored.getByRole("button", { name: "设置与备份" }).click();
@@ -91,20 +123,18 @@ test("rejects malformed nested backups without overwriting current records", asy
   await page.getByRole("button", { name: "200 ml", exact: true }).click();
   await page.getByRole("button", { name: "设置与备份" }).click();
   await page.getByRole("button", { name: /从备份恢复/ }).click();
-  await page
-    .getByLabel("导入备份文件")
-    .setInputFiles({
-      name: "broken.json",
-      mimeType: "application/json",
-      buffer: Buffer.from(
-        JSON.stringify({
-          version: 1,
-          days: { "2026-10-01": { meals: [{}] } },
-          notes: [],
-          settings: { name: "我", waterGoal: 2000 },
-        }),
-      ),
-    });
+  await page.getByLabel("导入备份文件").setInputFiles({
+    name: "broken.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(
+      JSON.stringify({
+        version: 1,
+        days: { "2026-10-01": { meals: [{}] } },
+        notes: [],
+        settings: { name: "我", waterGoal: 2000 },
+      }),
+    ),
+  });
   await expect(page.getByRole("status")).toContainText("文件格式不正确");
   await expect(page.locator(".water-display strong")).toHaveText("200");
 });

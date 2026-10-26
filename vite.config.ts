@@ -21,9 +21,9 @@ self.addEventListener('activate', event => { event.waitUntil(caches.keys().then(
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET' || new URL(event.request.url).origin !== self.location.origin) return;
   if (event.request.mode === 'navigate') {
-    event.respondWith(caches.match(new URL('./index.html', self.registration.scope)).then(cached => cached || fetch(event.request)));
+    event.respondWith(caches.open(CACHE).then(cache => cache.match(new URL('./index.html', self.registration.scope), { ignoreVary: true })).then(cached => cached || fetch(event.request)));
   } else {
-    event.respondWith(caches.match(event.request).then(cached => cached || fetch(event.request)));
+    event.respondWith(caches.open(CACHE).then(cache => cache.match(event.request, { ignoreVary: true })).then(cached => cached || fetch(event.request)));
   }
 });`,
         });

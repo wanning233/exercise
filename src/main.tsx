@@ -16,6 +16,7 @@ import {
   ChevronRight,
   CircleCheck,
   Coffee,
+  Cloud,
   Droplet,
   Dumbbell,
   Edit3,
@@ -65,8 +66,13 @@ import {
   loadJournal,
   loadRawJournal,
   saveJournal,
+  saveRecovery,
 } from "./storage";
 import "./styles.css";
+import { useCloudSync } from "./useCloudSync";
+import { CloudPanel } from "./CloudPanel";
+import { syncLabels } from "./sync";
+import { cloudAvailable } from "./cloudConfig";
 
 type Tab = "today" | "history" | "library";
 type Dialog =
@@ -216,6 +222,12 @@ function App() {
   const [query, setQuery] = useState("");
   const [partFilter, setPartFilter] = useState("全部");
   const [month, setMonth] = useState(TODAY.slice(0, 7));
+  const cloudSync = useCloudSync(
+    journal,
+    loaded && !loadError,
+    !!demo,
+    setJournal,
+  );
   const importRef = useRef<HTMLInputElement>(null);
   const revision = useRef(0);
   const current = demo || journal;
@@ -363,11 +375,15 @@ function App() {
       setDialog({
         kind: "confirm",
         title: "用备份替换本机记录？",
-        text: `备份包含 ${Object.keys(incoming.days).length} 天记录和 ${incoming.notes.length} 条要点。会替换当前数据，建议先导出当前备份。`,
+        text: `备份包含 ${Object.keys(incoming.days).length} 天记录和 ${incoming.notes.length} 条要点。会替换当前数据${cloudSync.state.user ? "并在保存后同步到云端" : ""}，建议先导出当前备份。`,
         action: () => {
-          setDemo(null);
-          setJournal(incoming);
-          notify("备份已导入");
+          void saveRecovery(journal)
+            .then(() => {
+              setDemo(null);
+              setJournal(incoming);
+              notify("备份已导入");
+            })
+            .catch(() => notify("保护副本保存失败，未替换当前记录"));
         },
       });
     } catch (error) {
@@ -505,6 +521,24 @@ function App() {
                     ? "保存失败 · 请导出备份"
                     : "已保存在本机"}
             </span>
+            <button
+              className={`cloud-indicator ${cloudSync.state.status}`}
+              title={
+                cloudAvailable
+                  ? syncLabels[cloudSync.state.status]
+                  : "云端同步入口"
+              }
+              onClick={() => setDialog({ kind: "settings" })}
+            >
+              <Cloud size={16} />
+              <span>
+                {demo
+                  ? "示例不上传"
+                  : cloudAvailable
+                    ? syncLabels[cloudSync.state.status]
+                    : "云端同步入口"}
+              </span>
+            </button>
             <IconButton
               title="设置与备份"
               onClick={() => setDialog({ kind: "settings" })}
@@ -623,11 +657,7 @@ function App() {
                   >
                     <span>{["一", "二", "三", "四", "五", "六", "日"][i]}</span>
                     <strong>{parseDate(key).getDate()}</strong>
-                    <i
-                      className={
-                        recordedDates.has(key) ? "recorded" : ""
-                      }
-                    />
+                    <i className={recordedDates.has(key) ? "recorded" : ""} />
                   </button>
                 ))}
                 <IconButton
@@ -1142,9 +1172,7 @@ function App() {
                         >
                           <strong>{i + 1}</strong>
                           <i
-                            className={
-                              recordedDates.has(key) ? "recorded" : ""
-                            }
+                            className={recordedDates.has(key) ? "recorded" : ""}
                           />
                         </button>
                       );
@@ -1576,24 +1604,33 @@ function App() {
             </>
           )}
           {dialog.kind === "settings" && (
-            <SettingsForm
-              settings={current.settings}
-              demo={!!demo}
-              save={(settings) => {
-                update((data) => ({ ...data, settings }));
-                setDialog(null);
-                notify("设置已保存");
-              }}
-              exportBackup={exportBackup}
-              importBackup={() => {
-                if (demo) {
-                  notify("请先退出示例再导入");
-                  return;
-                }
-                setDialog(null);
-                importRef.current?.click();
-              }}
-            />
+            <>
+              <CloudPanel
+                sync={cloudSync}
+                demo={!!demo}
+                notify={notify}
+                exportBackup={exportBackup}
+                journal={journal}
+              />
+              <SettingsForm
+                settings={current.settings}
+                demo={!!demo}
+                save={(settings) => {
+                  update((data) => ({ ...data, settings }));
+                  setDialog(null);
+                  notify("设置已保存");
+                }}
+                exportBackup={exportBackup}
+                importBackup={() => {
+                  if (demo) {
+                    notify("请先退出示例再导入");
+                    return;
+                  }
+                  setDialog(null);
+                  importRef.current?.click();
+                }}
+              />
+            </>
           )}
           {dialog.kind === "confirm" && (
             <>
@@ -2479,7 +2516,7 @@ function SettingsForm({
       <div className="settings-backup">
         <h3>我的数据</h3>
         <p>
-          记录与照片保存在当前浏览器，尚未连接云端。清除浏览器数据或更换设备前，请导出备份。
+          记录与照片会先保存在本机，云端版登录后自动同步。完整备份也包含照片，建议定期导出一份。
         </p>
         <button className="settings-row" onClick={exportBackup}>
           <ArrowDownToLine size={18} />

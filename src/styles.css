@@ -1933,6 +1933,109 @@ h1 {
   text-align: center;
   padding: 24px 0;
 }
+.cloud-panel {
+  padding-bottom: 24px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid #e3e7e4;
+}
+.cloud-panel h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  margin: 0 0 12px;
+}
+.cloud-panel p {
+  font-size: 13px;
+  line-height: 1.65;
+  color: #53635b;
+}
+.cloud-panel small {
+  color: #6d7872;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.cloud-panel form {
+  margin-top: 18px;
+}
+.cloud-panel .cloud-error {
+  color: #a33939;
+  overflow-wrap: anywhere;
+}
+.cloud-code-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+  margin-top: 16px;
+}
+.cloud-code-row .form-field {
+  min-width: 0;
+  margin-top: 0;
+}
+.cloud-code-row > button {
+  margin-bottom: 0;
+  white-space: nowrap;
+}
+.cloud-account {
+  overflow-wrap: anywhere;
+}
+.cloud-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 16px 0;
+}
+.cloud-conflict {
+  border-left: 3px solid #cd9b46;
+  padding: 2px 0 2px 14px;
+  margin: 16px 0;
+}
+.cloud-conflict .button {
+  margin: 5px 0;
+}
+.cloud-versions {
+  max-height: 320px;
+  overflow: auto;
+}
+.cloud-recoveries {
+  margin-top: 16px;
+  font-size: 13px;
+}
+.cloud-recoveries summary {
+  cursor: pointer;
+}
+.cloud-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: none;
+  border: 0;
+  padding: 6px;
+  color: #65756c;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  min-width: 28px;
+  min-height: 28px;
+}
+.cloud-indicator.synced {
+  color: #247653;
+}
+.cloud-indicator.error,
+.cloud-indicator.conflict {
+  color: #a33939;
+}
+.cloud-indicator.syncing svg {
+  animation: cloud-pulse 1s ease-in-out infinite alternate;
+}
+@keyframes cloud-pulse { to { opacity: 0.4; } }
+@media (max-width: 760px) {
+  .cloud-indicator span {
+    display: none;
+  }
+}
 .settings-backup {
   border-top: 1px solid var(--line);
   margin-top: 27px;
